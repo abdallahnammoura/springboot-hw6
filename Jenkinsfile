@@ -1,8 +1,14 @@
 pipeline {
     agent any
 
-    stages {
+    environment {
+        NEXUS_USER = 'admin'
+        NEXUS_PASS = 'admin123'
+        NEXUS_REPO = 'springboot-hw6'                   // your RAW repo name
+        NEXUS_URL  = 'http://host.docker.internal:8081' // reach Nexus via host
+    }
 
+    stages {
         stage('Checkout') {
             steps {
                 checkout scm
@@ -11,25 +17,26 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh '''
-                    chmod +x gradlew
-                    ./gradlew clean build -x test
-                '''
+                sh 'chmod +x gradlew'
+                sh './gradlew clean build -x test'
             }
         }
 
         stage('Upload to Nexus') {
             steps {
                 sh '''
-                    echo "Finding JAR file..."
-                    JAR_FILE=$(ls build/libs/*.jar | head -n 1)
+                  echo "Finding JAR file..."
+                  JAR_FILE=$(ls build/libs/*.jar | head -n 1)
+                  echo "Using JAR: $JAR_FILE"
 
-                    echo "Uploading $JAR_FILE to Nexus raw repo springboot-hw6..."
-                    curl --fail -v -u admin:admin123 \
-                        --upload-file "$JAR_FILE" \
-                        http://nexus:8081/repository/springboot-hw6/$(basename "$JAR_FILE")
+                  BASENAME=$(basename "$JAR_FILE")
+                  echo "Uploading $JAR_FILE to Nexus raw repo ${NEXUS_REPO} as ${BASENAME}..."
 
-                    echo "Upload complete."
+                  curl --fail -v -u ${NEXUS_USER}:${NEXUS_PASS} \
+                    --upload-file "$JAR_FILE" \
+                    ${NEXUS_URL}/repository/${NEXUS_REPO}/${BASENAME}
+
+                  echo "Upload complete."
                 '''
             }
         }
