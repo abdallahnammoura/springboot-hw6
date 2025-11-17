@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        // Nexus repo URL as seen from INSIDE the Jenkins container
-        NEXUS_REPO_URL = 'http://host.docker.internal:8081/repository/springboot-hw6/'
-        NEXUS_CRED_ID = 'nexus-admin'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -16,40 +10,25 @@ pipeline {
 
         stage('Build') {
             steps {
+                // make the wrapper executable, THEN run it
+                sh 'chmod +x gradlew'
                 sh './gradlew clean build -x test'
             }
         }
 
         stage('Upload to Nexus') {
             steps {
-                script {
-                    // find the jar Gradle built
-                    def jarFile = sh(
-                        script: "ls build/libs/*.jar",
-                        returnStdout: true
-                    ).trim()
+                sh '''
+                    # find the built jar
+                    JAR_FILE=$(ls build/libs/*.jar | head -n 1)
 
-                    echo "Uploading ${jarFile} to Nexus..."
+                    echo "Uploading $JAR_FILE to Nexus..."
 
-                    withCredentials([usernamePassword(
-                        credentialsId: NEXUS_CRED_ID,
-                        usernameVariable: 'NEXUS_USER',
-                        passwordVariable: 'NEXUS_PASS'
-                    )]) {
-                        sh """
-                            curl -v -u $NEXUS_USER:$NEXUS_PASS \
-                              --upload-file "${jarFile}" \
-                              "${NEXUS_REPO_URL}\$(basename ${jarFile})"
-                        """
-                    }
-                }
+                    curl -v -u admin:admin123 \
+                      --upload-file "$JAR_FILE" \
+                      "http://localhost:8081/repository/maven-releases/com/example/springboot-hw6/1.0.0/springboot-hw6-1.0.0.jar"
+                '''
             }
-        }
-    }
-
-    post {
-        success {
-            archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
         }
     }
 }
