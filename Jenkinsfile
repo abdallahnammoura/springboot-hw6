@@ -2,20 +2,23 @@ pipeline {
     agent any
 
     stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
-                // make mvnw executable inside the Linux Jenkins container
-                sh 'chmod +x mvnw'
-                // build the Spring Boot jar, skip tests to keep it fast
-                sh './mvnw -B clean package -DskipTests'
+                sh 'chmod +x gradlew'
+                sh './gradlew clean build -x test'
             }
         }
     }
 
     post {
         success {
-            // archive the jar so you can see it in Jenkins UI
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
         }
     }
 }
